@@ -5,7 +5,7 @@ save_name=$2
 
 pids=()
 
-for i in {0..7}; do
+for i in {0..3}; do
   CUDA_VISIBLE_DEVICES=$i python question_evaluate/evaluate.py --model $model_name --suffix $i --save_name $save_name &
   pids[$i]=$!
 done
@@ -18,7 +18,7 @@ timeout_duration=3600
 (
   sleep $timeout_duration
   echo "Timeout reached. Killing remaining tasks..."
-  for i in {1..7}; do
+  for i in {1..3}; do
     if kill -0 ${pids[$i]} 2>/dev/null; then
       kill -9 ${pids[$i]} 2>/dev/null
       echo "Killed task $i"
@@ -26,6 +26,6 @@ timeout_duration=3600
   done
 ) &
 
-for i in {1..7}; do
+for i in {1..3}; do
   wait ${pids[$i]} 2>/dev/null
 done
