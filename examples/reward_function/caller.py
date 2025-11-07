@@ -40,15 +40,15 @@ def fetch(index,i):
     return True
 
 def generate_results(data):
-    datas = split_list(data,4)
-    random_names = [generate_temp_filename(prefix=f"temp_{i}", suffix=".json") for i in range(4)]
-    for i in range(4):
+    datas = split_list(data,2)
+    random_names = [generate_temp_filename(prefix=f"temp_{i}", suffix=".json") for i in range(2)]
+    for i in range(2):
         with open(random_names[i],'w') as f:
             json.dump(datas[i],f,indent=4)
 
     final_results = []
-    with ThreadPoolExecutor(max_workers=4) as executor:
-        futures = [executor.submit(fetch, i,random_names[i]) for i in range(4)]
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(fetch, i,random_names[i]) for i in range(2)]
 
         for future in as_completed(futures):
             print(future.result())

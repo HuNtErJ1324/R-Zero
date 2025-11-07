@@ -17,7 +17,7 @@ echo "vLLM services started with RUN_ID=$RUN_ID"
 # 开始训练 Questioner
 echo "Start training questioner: $questioner_model_path -> $save_path"
 
-CUDA_VISIBLE_DEVICES=0,1,2,3 python3 -m verl.trainer.main \
+CUDA_VISIBLE_DEVICES=0,1 python3 -m verl.trainer.main \
     config=examples/config.yaml \
     data.max_response_length=4096 \
     worker.actor.model.model_path=$questioner_model_path \
@@ -26,7 +26,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 python3 -m verl.trainer.main \
     trainer.total_epochs=1000 \
     worker.reward.reward_function=./examples/reward_function/caller_penalty.py:compute_score \
     trainer.val_freq=-1 \
-    trainer.n_gpus_per_node=4 \
+    trainer.n_gpus_per_node=2 \
     data.format_prompt=./examples/format_prompt/questioner.jinja \
     worker.rollout.n=4 \
     worker.actor.global_batch_size=16 \

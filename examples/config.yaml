@@ -82,7 +82,7 @@ trainer:
   experiment_name: qwen2_5_7b_math_grpo
   logger: ["console", "wandb"]
   nnodes: 1
-  n_gpus_per_node: 8
+  n_gpus_per_node: 4
   val_freq: 3  # -1 to disable
   val_before_train: true
   val_only: false
