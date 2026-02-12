@@ -6,7 +6,7 @@
 #SBATCH --job-name=r-zero-train     # Job name
 #SBATCH --nodes=1                   # Request one node
 #SBATCH --ntasks-per-node=1         # Run one task (our script) on the node
-#SBATCH --gpus-per-node=h200:4           # Request 8 GPUs on that node
+#SBATCH --gpus-per-node=h200:4           # Request 4 GPUs on that node
 #SBATCH --time=3-00:00:00             # Set a 24-hour time limit (adjust as needed)
 #SBATCH --output=logs/r-zero-train-%j.out  # Standard output log file
 #SBATCH --error=logs/r-zero-train-%j.err   # Standard error log file
@@ -18,6 +18,7 @@ echo "SLURM_GPUS_ON_NODE: $SLURM_GPUS_ON_NODE"
 conda activate zero
 
 export STORAGE_PATH="$SCRATCH/R-Zero-storage"
+export HUGGINGFACENAME="HunterJ"  # TODO: set to your HuggingFace username
 
 BASE_MODEL="Qwen/Qwen2.5-3B"
 MODEL_ABBR="qwen2.5-3b"

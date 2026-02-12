@@ -588,9 +588,12 @@ class FSDPWorker(Worker):
         # perform recompute log_prob
         with self.ulysses_sharding_manager:
             data = self.ulysses_sharding_manager.preprocess_data(data)
-            output = self.actor.compute_log_prob(data=data)
+            log_probs, token_entropy = self.actor.compute_log_prob(data=data, compute_entropy=True)
+            tensors = {"old_log_probs": log_probs}
+            if token_entropy is not None:
+                tensors["token_entropy"] = token_entropy
             output = DataProto.from_dict(
-                tensors={"old_log_probs": output}, meta_info={"temperature": self.config.rollout.temperature}
+                tensors=tensors, meta_info={"temperature": self.config.rollout.temperature}
             )
             output = self.ulysses_sharding_manager.postprocess_data(output)
 
@@ -622,8 +625,11 @@ class FSDPWorker(Worker):
         data.meta_info["temperature"] = self.config.rollout.temperature
         with self.ulysses_sharding_manager:
             data = self.ulysses_sharding_manager.preprocess_data(data)
-            output = self.ref_policy.compute_log_prob(data=data)
-            output = DataProto.from_dict(tensors={"ref_log_probs": output})
+            ref_log_probs, ref_token_entropy = self.ref_policy.compute_log_prob(data=data, compute_entropy=True)
+            tensors = {"ref_log_probs": ref_log_probs}
+            if ref_token_entropy is not None:
+                tensors["ref_token_entropy"] = ref_token_entropy
+            output = DataProto.from_dict(tensors=tensors)
             output = self.ulysses_sharding_manager.postprocess_data(output)
 
         # https://pytorch.org/docs/stable/notes/fsdp.html#fsdp-notes

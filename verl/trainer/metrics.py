@@ -18,6 +18,7 @@ import numpy as np
 import torch
 
 from ..protocol import DataProto
+from ..utils import torch_functional as VF
 
 
 def reduce_metrics(metrics: Dict[str, List[Any]]) -> Dict[str, Any]:
@@ -91,6 +92,30 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = False) -> Dict[str
         "prompt_length/min": torch.min(prompt_length).detach().item(),
         "prompt_length/clip_ratio": torch.mean(torch.eq(prompt_length, max_prompt_length).float()).detach().item(),
     }
+
+    # Token-level entropy metrics for the actor (proposer or solver)
+    if "token_entropy" in batch.batch:
+        token_entropy = batch.batch["token_entropy"]
+        valid_entropy = torch.masked_select(token_entropy, response_mask)
+        metrics.update({
+            "entropy/actor_token/mean": torch.mean(valid_entropy).detach().item(),
+            "entropy/actor_token/max": torch.max(valid_entropy).detach().item(),
+            "entropy/actor_token/min": torch.min(valid_entropy).detach().item(),
+            # Per-sequence mean entropy
+            "entropy/actor_sequence/mean": VF.masked_mean(token_entropy, response_mask, dim=-1).mean().detach().item(),
+        })
+
+    # Token-level entropy metrics for the reference policy
+    if "ref_token_entropy" in batch.batch:
+        ref_token_entropy = batch.batch["ref_token_entropy"]
+        valid_ref_entropy = torch.masked_select(ref_token_entropy, response_mask)
+        metrics.update({
+            "entropy/ref_token/mean": torch.mean(valid_ref_entropy).detach().item(),
+            "entropy/ref_token/max": torch.max(valid_ref_entropy).detach().item(),
+            "entropy/ref_token/min": torch.min(valid_ref_entropy).detach().item(),
+            "entropy/ref_sequence/mean": VF.masked_mean(ref_token_entropy, response_mask, dim=-1).mean().detach().item(),
+        })
+
     return metrics
 
 

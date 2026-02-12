@@ -16,6 +16,7 @@ FSDP PPO Trainer with Ray-based single controller.
 This trainer supports model-agonistic model initialization with huggingface
 """
 
+import json
 import os
 import uuid
 from collections import defaultdict
@@ -456,6 +457,40 @@ class RayPPOTrainer:
         )
         metrics.update(global_balance_stats)
 
+    def _save_generations(self, batch: DataProto, step: int) -> None:
+        """Save all generated responses (proposed questions) to disk as JSONL."""
+        gen_dir = os.path.join(self.config.trainer.save_checkpoint_path, "generations")
+        os.makedirs(gen_dir, exist_ok=True)
+        gen_path = os.path.join(gen_dir, f"step_{step}.jsonl")
+
+        response_ids = batch.batch["responses"]
+        response_mask = batch.batch["response_mask"]
+        input_ids = batch.batch["input_ids"]
+        max_response_length = response_ids.size(-1)
+        prompt_ids = input_ids[:, :-max_response_length]
+
+        with open(gen_path, "w", encoding="utf-8") as f:
+            for i in range(len(response_ids)):
+                # Decode only valid (non-padded) response tokens
+                valid_len = int(response_mask[i].sum().item())
+                valid_response_ids = response_ids[i][:valid_len]
+                response_text = self.tokenizer.decode(valid_response_ids, skip_special_tokens=True)
+                prompt_text = self.tokenizer.decode(prompt_ids[i], skip_special_tokens=True)
+
+                ground_truth = ""
+                if "ground_truth" in batch.non_tensor_batch:
+                    ground_truth = str(batch.non_tensor_batch["ground_truth"][i])
+
+                record = {
+                    "step": step,
+                    "prompt": prompt_text,
+                    "response": response_text,
+                    "ground_truth": ground_truth,
+                }
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+        print(f"Saved {len(response_ids)} generations to {gen_path}")
+
     def fit(self):
         """
         The training loop of PPO.
@@ -536,6 +571,9 @@ class RayPPOTrainer:
 
                     # compute global_valid tokens
                     batch.meta_info["global_token_num"] = torch.sum(batch.batch["attention_mask"], dim=-1).tolist()
+
+                    # save all generated responses (proposed questions) to disk
+                    self._save_generations(batch, step=self.global_step)
 
                     # compute reward
                     with timer("reward", timing_raw):

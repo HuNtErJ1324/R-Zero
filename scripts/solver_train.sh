@@ -15,7 +15,7 @@ echo 'start upload'
 python question_evaluate/upload.py --repo_name ${experiment_name} --max_score 0.8 --min_score 0.3 --experiment_name ${experiment_name}
 echo 'start train'
 
-python3 -m verl.trainer.main \
+CUDA_VISIBLE_DEVICES=0,1,2,3 python3 -m verl.trainer.main \
     config=examples/config.yaml \
     data.max_response_length=4096 \
     worker.actor.model.model_path=$solver_model_path \
@@ -26,6 +26,7 @@ python3 -m verl.trainer.main \
     trainer.max_steps=20 \
     data.format_prompt=./examples/format_prompt/solver.jinja \
     trainer.val_freq=4 \
+    trainer.n_gpus_per_node=4 \
     worker.actor.micro_batch_size_per_device_for_update=1 \
     worker.actor.micro_batch_size_per_device_for_experience=1 \
 
