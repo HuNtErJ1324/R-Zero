@@ -142,9 +142,22 @@ pip install -r requirements.txt
 echo ""
 
 # --- Step 4d: Install flash-attn LAST (compiles CUDA kernels against torch) ---
-echo "  [4d] Installing flash-attn..."
-echo "       Using --no-cache-dir to avoid cross-device link errors on HPC."
-pip install flash-attn==2.7.4.post1 --no-build-isolation --no-cache-dir
+echo "  [4d] Installing flash-attn (building from source, may take 10-30 min)..."
+echo "       Loading compiler modules for CUDA kernel compilation..."
+
+# Load newer GCC (>= 9) and CUDA toolkit — required for nvcc host compilation
+# Adjust module names if your HPC uses different names (check: module avail gcc)
+module load gcc cuda 2>/dev/null || {
+    echo "  WARNING: 'module load gcc cuda' failed."
+    echo "  Please load a GCC >= 9 and CUDA module manually before running this script."
+    echo "  Example: module load gcc/11.4.0 cuda/12.4.1"
+    echo "  Check available modules with: module avail gcc"
+    exit 1
+}
+echo "  GCC: $(gcc --version | head -1)"
+echo "  nvcc: $(nvcc --version | tail -1)"
+
+FLASH_ATTENTION_FORCE_BUILD=TRUE pip install flash-attn==2.7.4.post1 --no-build-isolation --no-cache-dir
 echo ""
 
 # =============================================================

@@ -1,0 +1,117 @@
+Bootstrap: docker
+From: nvidia/cuda:12.6.3-devel-ubuntu22.04
+
+%labels
+    Author          R-Zero
+    CUDA            12.6.3
+    Python          3.10
+    PyTorch         2.7.0
+    flash-attn      2.7.4.post1
+    Target          H200 (sm_90)
+
+%environment
+    export CUDA_HOME=/usr/local/cuda
+    export PATH=/usr/local/cuda/bin:$PATH
+    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+    export VLLM_DISABLE_COMPILE_CACHE=1
+    export PYTHONUNBUFFERED=1
+
+%files
+    # Copied from the repo root at build time (run apptainer build from there)
+    requirements.txt /opt/requirements.txt
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+
+    # ------------------------------------------------------------------
+    # 1. System packages
+    # ------------------------------------------------------------------
+    apt-get update && apt-get install -y --no-install-recommends \
+        python3.10 \
+        python3.10-dev \
+        python3-pip \
+        python3-setuptools \
+        python3-wheel \
+        git \
+        wget \
+        curl \
+        ffmpeg \
+        pkg-config \
+        build-essential \
+        && apt-get clean \
+        && rm -rf /var/lib/apt/lists/*
+
+    # Ubuntu 22.04 ships python3.10 as the default python3.
+    # Expose it as 'python' for scripts that don't use 'python3'.
+    ln -s /usr/bin/python3.10 /usr/local/bin/python
+
+    # ------------------------------------------------------------------
+    # 2. Upgrade pip / setuptools
+    # ------------------------------------------------------------------
+    python -m pip install --upgrade pip setuptools wheel --no-cache-dir
+
+    # ------------------------------------------------------------------
+    # 3. PyTorch 2.7.0 with CUDA 12.6 wheels
+    #
+    #    MUST be installed from the cu126 index BEFORE requirements.txt.
+    #    requirements.txt also lists torch==2.7.0, but without the wheel
+    #    URL — pip would otherwise pull a CPU-only build from PyPI.
+    #    Installing here first means pip sees "already satisfied" when
+    #    it processes requirements.txt and skips the PyPI entry.
+    # ------------------------------------------------------------------
+    pip install \
+        torch==2.7.0 \
+        torchvision==0.22.0 \
+        torchaudio==2.7.0 \
+        --index-url https://download.pytorch.org/whl/cu126 \
+        --no-cache-dir
+
+    # ------------------------------------------------------------------
+    # 4. All other project dependencies from requirements.txt
+    # ------------------------------------------------------------------
+    pip install -r /opt/requirements.txt --no-cache-dir
+
+    # ------------------------------------------------------------------
+    # 5. flash-attn — must come last (compiles CUDA kernels against the
+    #    torch version installed above).
+    #
+    #    TORCH_CUDA_ARCH_LIST="9.0" targets only H100/H200 (Hopper),
+    #    cutting build time significantly vs. compiling for all arches.
+    #    MAX_JOBS=4 limits parallel nvcc workers to avoid build-time OOM.
+    #    FLASH_ATTENTION_FORCE_BUILD=TRUE skips pre-built wheel lookup so
+    #    the kernels are compiled for the exact CUDA/torch ABI here.
+    # ------------------------------------------------------------------
+    CUDA_HOME=/usr/local/cuda \
+    TORCH_CUDA_ARCH_LIST="9.0" \
+    MAX_JOBS=4 \
+    FLASH_ATTENTION_FORCE_BUILD=TRUE \
+    pip install flash-attn==2.7.4.post1 \
+        --no-build-isolation \
+        --no-cache-dir
+
+    pip cache purge
+
+%runscript
+    exec "$@"
+
+%help
+    R-Zero training container — 4x H200, CUDA 12.6, PyTorch 2.7.0.
+
+    BUILD (run from the repo root — flash-attn takes ~30 min):
+
+        apptainer build r-zero.sif r-zero.def
+
+    If the login node restricts heavy compilation, build interactively
+    on a compute node (no GPU needed; nvcc is in the container image):
+
+        salloc -A stf --partition=gpu-rtx6k --gpus=1 --time=02:00:00
+        cd /mmfs1/gscratch/scrubbed/jchae3/R-Zero
+        apptainer build --fakeroot r-zero.sif r-zero.def
+
+    The .sif file is ~20 GB. Store it on scratch, not home:
+
+        mv r-zero.sif $SCRATCH/
+
+    SUBMIT:
+
+        sbatch scripts/train.slurm
