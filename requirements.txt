@@ -38,6 +38,7 @@ tqdm==4.67.1
 
 # --- Math Evaluation ---
 mathruler==0.1.0
+pylatexenc==2.10
 math-verify==0.7.0
 latex2sympy2_extended==1.10.1
 sympy==1.14.0

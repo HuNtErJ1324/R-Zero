@@ -113,14 +113,18 @@ def main():
     ppo_config.deep_post_init()
 
     if not ray.is_initialized():
+        # Disable Ray's memory monitor — it can misread container memory limits
+        # and kill the raylet, causing "End of file" worker registration failures.
+        os.environ.setdefault("RAY_DISABLE_MEMORY_MONITOR", "1")
         runtime_env = {
             "env_vars": {
                 "TOKENIZERS_PARALLELISM": "true",
-                "NCCL_DEBUG": "WARN",
+                "NCCL_DEBUG": "INFO",
                 "VLLM_LOGGING_LEVEL": "WARN",
                 "TORCH_NCCL_AVOID_RECORD_STREAMS": "1",
                 "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:False",
                 "PYTHONUNBUFFERED": "1",
+                "RAY_DISABLE_MEMORY_MONITOR": "1",
             }
         }
         ray.init(runtime_env=runtime_env,num_cpus=16)
