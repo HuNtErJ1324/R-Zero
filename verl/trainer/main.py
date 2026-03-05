@@ -119,7 +119,7 @@ def main():
         runtime_env = {
             "env_vars": {
                 "TOKENIZERS_PARALLELISM": "true",
-                "NCCL_DEBUG": "INFO",
+                "NCCL_DEBUG": "WARN",
                 "VLLM_LOGGING_LEVEL": "WARN",
                 "TORCH_NCCL_AVOID_RECORD_STREAMS": "1",
                 "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:False",
@@ -127,7 +127,17 @@ def main():
                 "RAY_DISABLE_MEMORY_MONITOR": "1",
             }
         }
-        ray.init(runtime_env=runtime_env,num_cpus=16)
+        ray.init(
+            runtime_env=runtime_env,
+            num_cpus=16,
+            _system_config={
+                # Default keepalive timeout is ~20s, which is shorter than a
+                # single training step. Increase so Ray doesn't mark long-running
+                # actor tasks as dead mid-step.
+                "grpc_keepalive_time_ms": 30000,       # ping every 30s
+                "grpc_keepalive_timeout_ms": 600000,   # allow 10 min for response
+            },
+        )
 
     runner = Runner.remote()
     ray.get(runner.run.remote(ppo_config))
