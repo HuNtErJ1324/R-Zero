@@ -131,11 +131,12 @@ def main():
             runtime_env=runtime_env,
             num_cpus=16,
             _system_config={
-                # Default keepalive timeout is ~20s, which is shorter than a
-                # single training step. Increase so Ray doesn't mark long-running
-                # actor tasks as dead mid-step.
-                "grpc_keepalive_time_ms": 30000,       # ping every 30s
-                "grpc_keepalive_timeout_ms": 600000,   # allow 10 min for response
+                # On a single node all Ray traffic goes over loopback, so
+                # keepalive pings are unnecessary and cause chttp2 state errors
+                # when they fire during long training steps. Set a 24-hour ping
+                # interval to effectively disable them for any realistic run.
+                "grpc_keepalive_time_ms": 86400000,    # ping at most once per day
+                "grpc_keepalive_timeout_ms": 86400000, # 24-hour timeout
             },
         )
 
