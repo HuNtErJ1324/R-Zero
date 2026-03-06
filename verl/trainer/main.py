@@ -125,6 +125,11 @@ def main():
                 "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:False",
                 "PYTHONUNBUFFERED": "1",
                 "RAY_DISABLE_MEMORY_MONITOR": "1",
+                # NVLink/PCIe peer-to-peer memory transfers are blocked in
+                # Apptainer containers, causing NCCL to hang during the FSDP
+                # parameter broadcast in init_model(). Disabling P2P forces NCCL
+                # to use shared memory (/dev/shm) for intra-node transfers.
+                "NCCL_P2P_DISABLE": "1",
             }
         }
         ray.init(
